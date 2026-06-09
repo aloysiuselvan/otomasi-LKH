@@ -60,55 +60,70 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, command: true });
     }
 
-    // Step 1: Classify the work log using Gemini AI
-    const classification = await classifyWorkLog(rawInput);
+    // Inner try-catch: isolate Gemini & Supabase errors so we ALWAYS return 200 to Telegram.
+    // This prevents the Telegram "Retry Storm" where non-200 responses cause infinite retries.
+    try {
+      // Step 1: Classify the work log using Gemini AI
+      const classification = await classifyWorkLog(rawInput);
 
-    // Step 2: Prepare the record for Supabase
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    const logEntry: DailyLogInsert = {
-      log_date: today,
-      raw_input: rawInput,
-      is_skp: classification.is_skp,
-      skp_category: classification.skp_category,
-      short_description: classification.short_description,
-    };
+      // Step 2: Prepare the record for Supabase
+      const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const logEntry: DailyLogInsert = {
+        log_date: today,
+        raw_input: rawInput,
+        is_skp: classification.is_skp,
+        skp_category: classification.skp_category,
+        short_description: classification.short_description,
+      };
 
-    // Step 3: Insert into Supabase
-    const { error: dbError } = await getSupabase()
-      .from("daily_logs")
-      .insert(logEntry);
+      // Step 3: Insert into Supabase
+      const { error: dbError } = await getSupabase()
+        .from("daily_logs")
+        .insert(logEntry);
 
-    if (dbError) {
-      console.error("Supabase insert error:", dbError);
+      if (dbError) {
+        console.error("Supabase insert error:", dbError);
+        await sendTelegramMessage(
+          chatId,
+          "❌ Gagal menyimpan log ke database. Silakan coba lagi nanti."
+        );
+        // KRUSIAL: Tetap return 200 agar Telegram tidak retry
+        return NextResponse.json({ ok: true, message: "DB error, notified user" });
+      }
+
+      // Step 4: Reply with confirmation
+      const categoryLabel = classification.is_skp
+        ? `📂 SKP: ${classification.skp_category}`
+        : "📁 Di Luar SKP";
+
+      const confirmationMessage = [
+        "✅ <b>Log berhasil disimpan!</b>",
+        "",
+        `${categoryLabel}`,
+        `📝 ${classification.short_description}`,
+        `📅 ${today}`,
+      ].join("\n");
+
+      await sendTelegramMessage(chatId, confirmationMessage);
+
+      return NextResponse.json({ ok: true });
+    } catch (processingError) {
+      console.error("Gemini/Supabase processing error:", processingError);
+
+      // Notify user about the error via Telegram
       await sendTelegramMessage(
         chatId,
-        "❌ Gagal menyimpan log. Silakan coba lagi."
-      );
-      return NextResponse.json({ ok: false, error: dbError.message }, { status: 500 });
+        "⚠️ Maaf, terjadi error saat memproses log Anda (kemungkinan AI sedang sibuk). Silakan coba lagi dalam beberapa menit."
+      ).catch((e) => console.error("Failed to send error notification:", e));
+
+      // KRUSIAL: Tetap return 200 agar Telegram BERHENTI retry
+      return NextResponse.json({ ok: true, message: "Processing error, notified user" });
     }
-
-    // Step 4: Reply with confirmation
-    const categoryLabel = classification.is_skp
-      ? `📂 SKP: ${classification.skp_category}`
-      : "📁 Di Luar SKP";
-
-    const confirmationMessage = [
-      "✅ <b>Log berhasil disimpan!</b>",
-      "",
-      `${categoryLabel}`,
-      `📝 ${classification.short_description}`,
-      `📅 ${today}`,
-    ].join("\n");
-
-    await sendTelegramMessage(chatId, confirmationMessage);
-
-    return NextResponse.json({ ok: true });
   } catch (error) {
+    // Outer catch: handles catastrophic errors (e.g. malformed JSON body)
     console.error("Webhook handler error:", error);
-    return NextResponse.json(
-      { ok: false, error: "Internal server error" },
-      { status: 500 }
-    );
+    // KRUSIAL: Selalu return 200 ke Telegram, apapun yang terjadi
+    return NextResponse.json({ ok: true, message: "Unhandled error, logged" });
   }
 }
 
