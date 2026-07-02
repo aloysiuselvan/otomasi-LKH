@@ -45,8 +45,8 @@ export async function classifyWorkLog(
     throw new Error("GEMINI_API_KEY is not defined in environment variables");
   }
 
-  // JALUR SAKTI: Kita arahkan ke v1beta, rumah asli dari gemini-1.5-flash
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  // KITA KEMBALI KE 2.0-FLASH (Satu-satunya model yang diakui akun Anda)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   // Menggabungkan instruksi sistem ke dalam prompt
   const promptText = `${SYSTEM_PROMPT}\n\nLog Kerja:\n${rawInput}`;
