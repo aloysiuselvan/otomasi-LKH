@@ -49,7 +49,7 @@ Output: {"is_skp": false, "skp_category": null, "short_description": "Mengikuti 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama3-8b-8192",
+      model: "llama-3.1-8b-instant", // Gunakan versi 3.1 yang aktif dan super cepat
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: rawInput }
