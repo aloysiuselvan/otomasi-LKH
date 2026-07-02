@@ -45,13 +45,12 @@ export async function classifyWorkLog(
     throw new Error("GEMINI_API_KEY is not defined in environment variables");
   }
 
-  // KITA KENDALIKAN PENUH URL-NYA (Menggunakan v1, bukan v1beta)
   const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   // Menggabungkan instruksi sistem ke dalam prompt
   const promptText = `${SYSTEM_PROMPT}\n\nLog Kerja:\n${rawInput}`;
 
-  // Tembak API Google secara langsung menggunakan Raw Fetch
+  // Tembak API Google secara langsung (Tanpa generationConfig yang memicu Error 400)
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -62,24 +61,22 @@ export async function classifyWorkLog(
         {
           parts: [{ text: promptText }] 
         }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json", // Memaksa AI mengembalikan JSON
-        temperature: 0.2
-      }
+      ]
     }),
   });
 
-  // Tangkap error dengan sangat spesifik agar kita tahu pasti apa masalahnya
   if (!response.ok) {
     const errorText = await response.text();
     console.error("RAW FETCH ERROR DETAILED:", errorText);
     throw new Error(`Google API Raw Error ${response.status}: ${errorText}`);
   }
 
-  // Parse hasil JSON dari Google
   const data = await response.json();
-  const textOutput = data.candidates[0].content.parts[0].text;
+  let textOutput = data.candidates[0].content.parts[0].text;
+
+  // Pertahanan tambahan: Bersihkan backticks markdown (```json ... ```) 
+  // yang sering digunakan AI jika tidak dipaksa lewat generationConfig
+  textOutput = textOutput.replace(/```json\n?/gi, '').replace(/```/g, '').trim();
 
   // Lanjutkan dengan logika parsing Anda ke tipe GeminiClassificationResult
   try {
