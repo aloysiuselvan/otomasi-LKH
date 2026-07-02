@@ -1,7 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { GeminiClassificationResult } from "@/lib/supabase/types";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const apiKey = process.env.GEMINI_API_KEY;
+
+if (!apiKey) {
+  throw new Error("GEMINI_API_KEY is not defined in environment variables");
+}
+
+const genAI = new GoogleGenerativeAI(apiKey);
 
 /**
  * System prompt that instructs Gemini to classify daily work logs
