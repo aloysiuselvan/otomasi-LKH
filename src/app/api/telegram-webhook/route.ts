@@ -93,15 +93,18 @@ export async function POST(request: NextRequest) {
 
       // Step 4: Reply with confirmation
       const categoryLabel = classification.is_skp
-        ? `📂 SKP: ${classification.skp_category}`
-        : "📁 Di Luar SKP";
+        ? `📁 <b>Kategori SKP:</b>\n${classification.skp_category}`
+        : "📁 <b>Kategori SKP:</b>\nBukan target SKP";
 
       const confirmationMessage = [
         "✅ <b>Log berhasil disimpan!</b>",
         "",
-        `${categoryLabel}`,
-        `📝 ${classification.short_description}`,
-        `📅 ${today}`,
+        "📝 <b>Kalimat Optimalisasi:</b>",
+        `<i>"${classification.short_description}"</i>`,
+        "",
+        categoryLabel,
+        "",
+        `📅 <b>Tanggal:</b> ${today}`
       ].join("\n");
 
       await sendTelegramMessage(chatId, confirmationMessage);
