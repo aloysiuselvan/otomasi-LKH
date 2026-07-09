@@ -11,7 +11,9 @@ export async function classifyWorkLog(rawInput: string) {
 
   // System Prompt dengan teknik Few-Shot untuk akurasi mutlak Llama 3
   const systemPrompt = `Kamu adalah asisten klasifikasi log kerja harian untuk seorang Pranata Komputer (PNS).
-Tugasmu adalah menganalisis teks laporan kegiatan harian, lalu mengklasifikasikannya ke dalam salah satu dari 9 Rencana Hasil Kerja (SKP) 2026.
+Tugasmu ada dua:
+1. MENGKLASIFIKASIKAN teks input ke dalam salah satu dari 9 Kategori SKP.
+2. MENGOPTIMALKAN kalimat input yang santai/kasar menjadi deskripsi pekerjaan birokrasi/teknis formal yang berbobot.
 
 KATEGORI SKP (Pilih salah satu persis seperti tertulis jika relevan):
 1. Perawatan dan Pengembangan Aplikasi Layanan dilakukan secara Inovatif dan sesuai Kebutuhan
@@ -25,22 +27,24 @@ KATEGORI SKP (Pilih salah satu persis seperti tertulis jika relevan):
 9. Obyek Multimedia Kompleks  untuk Disusun dan Diedit secara Inovatif dan Tepat Guna
 
 ATURAN MUTLAK:
-1. Jika kegiatan COCOK, is_skp = true dan skp_category = "Nama Kategori (harus sama persis)".
-2. Jika kegiatan TIDAK COCOK, is_skp = false dan skp_category = null.
-3. short_description: Ringkas kegiatan maksimal 10 kata dalam Bahasa Indonesia formal.
-4. OUTPUT WAJIB berformat JSON murni. Dilarang memberikan teks pengantar atau markdown (\`\`\`json).
+1. Jika relevan, is_skp = true dan skp_category = "Nama Kategori (harus sama persis)". Jika tidak, is_skp = false dan skp_category = null.
+2. short_description: JANGAN HANYA MENYALIN INPUT. Ubah dan optimalkan kalimat menjadi bahasa resmi dan teknis standar Pranata Komputer. 
+   - Ganti kata santai (misal: bikin, rapat, riset, ngerjain, ngecek) menjadi kata kerja formal (misal: merancang, melakukan koordinasi teknis, melakukan analisis spesifikasi, mengimplementasikan, melakukan audit).
+   - Fokus pada OUTPUT pekerjaan, bukan sekadar aktivitas.
+   - Maksimal 15 kata dalam Bahasa Indonesia formal.
+3. OUTPUT WAJIB berformat JSON murni tanpa markdown.
 
 CONTOH 1 (Sesuai Kategori):
-Input: "Hari ini saya melakukan setup docker dan wsl2 untuk migrasi database web ERRIKA ke cpanel PDN pusat."
-Output: {"is_skp": true, "skp_category": "Terlaksananya Migrasi Aplikasi ke PDN dan Integrasi ke Pusaka sesuai dengan Kebutuhan dan Ketentuan yang Berlaku", "short_description": "Setup lingkungan pengembangan untuk migrasi web ERRIKA."}
+Input: "hari ini rapat bahas sisa kerjaan dan bikin repo staging di gitlab."
+Output: {"is_skp": true, "skp_category": "Perawatan dan Pengembangan Aplikasi Layanan dilakukan secara Inovatif dan sesuai Kebutuhan", "short_description": "Melakukan koordinasi teknis penjadwalan dan setup repository staging pada GitLab."}
 
-CONTOH 2 (Sesuai Kategori):
-Input: "Memperbaiki bug tampilan UI dengan Tailwind CSS v3 pada SITARA."
-Output: {"is_skp": true, "skp_category": "Perawatan dan Pengembangan Aplikasi Layanan dilakukan secara Inovatif dan sesuai Kebutuhan", "short_description": "Perbaikan bug tampilan antarmuka pada aplikasi SITARA."}
+CONTOH 2 (Optimalisasi Kata Riset):
+Input: "riset docker sama wsl2 buat migrasi web"
+Output: {"is_skp": true, "skp_category": "Terlaksananya Migrasi Aplikasi ke PDN dan Integrasi ke Pusaka sesuai dengan Kebutuhan dan Ketentuan yang Berlaku", "short_description": "Melakukan analisis spesifikasi teknis dan konfigurasi environment menggunakan Docker dan WSL2."}
 
-CONTOH 3 (Tidak Sesuai Kategori):
-Input: "Mengikuti rapat rutin mingguan divisi."
-Output: {"is_skp": false, "skp_category": null, "short_description": "Mengikuti rapat rutin mingguan divisi."}`;
+CONTOH 3 (Bukan SKP):
+Input: "ikut apel pagi dan senam"
+Output: {"is_skp": false, "skp_category": null, "short_description": "Mengikuti kegiatan apel pagi dan senam kebugaran pegawai."}`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -49,14 +53,14 @@ Output: {"is_skp": false, "skp_category": null, "short_description": "Mengikuti 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant", // Gunakan versi 3.1 yang aktif dan super cepat
+      model: "llama-3.1-8b-instant",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: rawInput }
       ],
       response_format: { type: "json_object" },
-      temperature: 0.1, // Suhu sangat rendah agar tidak melenceng dari contoh
-      max_tokens: 150 // Batasi token karena kita hanya butuh respon pendek
+      temperature: 0.2, // Sedikit dinaikkan agar AI punya ruang kreativitas merangkai kata formal
+      max_tokens: 150
     }),
   });
 
@@ -69,7 +73,6 @@ Output: {"is_skp": false, "skp_category": null, "short_description": "Mengikuti 
   const data = await response.json();
   let textOutput = data.choices[0].message.content;
 
-  // Llama 3 terkadang masih membocorkan markdown meski sudah dipaksa json_object
   textOutput = textOutput.replace(/```json\n?/gi, '').replace(/```/g, '').trim();
 
   try {
