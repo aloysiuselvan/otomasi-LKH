@@ -18,6 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_logs_log_date ON daily_logs (log_date);
 ALTER TABLE daily_logs ENABLE ROW LEVEL SECURITY;
 
 -- Allow service role full access (used by Next.js API routes)
+DROP POLICY IF EXISTS "Service role has full access" ON daily_logs;
 CREATE POLICY "Service role has full access"
   ON daily_logs
   FOR ALL
