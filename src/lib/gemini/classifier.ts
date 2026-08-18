@@ -9,7 +9,7 @@ export async function classifyWorkLog(rawInput: string) {
 
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
-  // System Prompt dengan teknik Few-Shot untuk akurasi mutlak Llama 3
+  // System Prompt dengan teknik Few-Shot untuk akurasi mutlak GPT OSS 20B
   const systemPrompt = `Kamu adalah asisten klasifikasi log kerja harian untuk seorang Pranata Komputer (PNS).
 Tugasmu ada dua:
 1. MENGKLASIFIKASIKAN teks input ke dalam salah satu dari 9 Kategori SKP.
