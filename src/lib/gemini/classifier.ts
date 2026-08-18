@@ -59,8 +59,9 @@ Output: {"is_skp": false, "skp_category": null, "short_description": "Mengikuti 
         { role: "user", content: rawInput }
       ],
       response_format: { type: "json_object" },
+      reasoning_format: "parsed",
       temperature: 0.2, // Sedikit dinaikkan agar AI punya ruang kreativitas merangkai kata formal
-      max_tokens: 150
+      max_completion_tokens: 1000
     }),
   });
 
